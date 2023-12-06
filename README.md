@@ -1,0 +1,1 @@
+# magento-cookiebot-module
