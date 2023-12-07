@@ -43,6 +43,8 @@ class JsFooterPlugin
         $bodyEndTagFound = strrpos($content, $bodyEndTag) !== false;
 
         if ($bodyEndTagFound) {
+            $content = $this->cookieBotIframe($content, 'youtube');
+            $content = $this->cookieBotLiteYoutube($content, 'lite-youtube');
             $scripts = $this->extractScriptTags($content);
             if ($scripts) {
                 $newBodyEndTagPosition = strrpos($content, $bodyEndTag);
@@ -76,6 +78,15 @@ class JsFooterPlugin
                 continue;
             }
 
+            //outer/edge skip Lazysizes & Cookiebot
+            $skipScript = (str_contains($script, 'lazysizes') || str_contains($script, 'cookiebot') || str_contains($script, 'CookieDeclaration'));
+
+            if ($skipScript) {
+                $scriptOpenPos = strpos($content, $scriptOpen, $scriptClosePos);
+                continue;
+            }
+            //outer/edge skip Lazysizes & Cookiebot
+
             $scripts .= "\n" . $script;
             $content = str_replace($script, '', $content);
             // Script cut out, continue search from its position.
@@ -106,7 +117,6 @@ class JsFooterPlugin
      */
     private function cookieBotIframe(&$content, $srcContains): string
     {
-        $iframes = '';
         $iframeOpen = '<iframe';
         $iframeClose = '</iframe>';
         $iframeOpenPos = strpos($content, $iframeOpen);
@@ -128,6 +138,34 @@ class JsFooterPlugin
             $iframeOpenPos = strpos($content, $iframeOpen); // get new open pos with updated content
             // Script cut out, continue search from its position.
             $iframeOpenPos = strpos($content, $iframeOpen, $iframeOpenPos);
+        }
+
+        return $content;
+    }
+
+    private function cookieBotLiteYoutube(&$content, $srcContains): string
+    {
+        $elOpen = '<lite-youtube';
+        $elClose = '</lite-youtube>';
+        $elOpenPos = strpos($content, $elOpen);
+
+        while ($elOpenPos !== false) {
+            $scriptClosePos = strpos($content, $elClose, $elOpenPos);
+            $element = substr($content, $elOpenPos, $scriptClosePos - $elOpenPos + strlen($elClose));
+
+            $skipScript = str_contains($element, 'cookieconsent-optin-marketing');
+
+            if ($skipScript) {
+                $elOpenPos = strpos($content, $elOpen, $scriptClosePos);
+                continue;
+            }
+
+            $newElement = str_replace('<lite-youtube', '<lite-youtube class="cookieconsent-optin-marketing"', $element);
+
+            $content = str_replace($element, $newElement, $content);
+            $elOpenPos = strpos($content, $elOpen); // get new open pos with updated content
+            // Script cut out, continue search from its position.
+            $elOpenPos = strpos($content, $elOpen, $elOpenPos);
         }
 
         return $content;
